@@ -8,6 +8,7 @@ public class Pet {
     private double weight;
     private String notes;
     private String gender;
+    private String imagePath;
 
     // Default constructor
     public Pet() {
@@ -63,7 +64,7 @@ public class Pet {
     public void setBirthDate(Date birthDate) { 
         this.birthDate = birthDate != null ? new Date(birthDate.getTime()) : null; 
     }
-    
+
     public double getWeight() { 
         return weight; 
     }
@@ -86,6 +87,14 @@ public class Pet {
     
     public void setGender(String gender) { 
         this.gender = gender; 
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 
     public int getAge() {

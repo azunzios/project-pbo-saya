@@ -5,40 +5,29 @@ import java.sql.SQLException;
 public class DatabaseConnection {
     private static final String URL = "jdbc:mysql://localhost:3306/petcare";
     private static final String USER = "root";
-    private static final String PASSWORD = "";
-    private static Connection connection = null;
+    private static final String PASSWORD = "admin";
 
-    private DatabaseConnection() {
-        // Private constructor to prevent instantiation
-    }
+    // Private constructor to prevent instantiation
+    private DatabaseConnection() {}
 
-    public static Connection getConnection() {
-        if (connection == null) {
-            try {
-                // Load the MySQL JDBC driver
-                Class.forName("com.mysql.cj.jdbc.Driver");
-                
-                // Create a connection to the database
-                connection = DriverManager.getConnection(URL, USER, PASSWORD);
-                System.out.println("Connected to database successfully!");
-            } catch (ClassNotFoundException e) {
-                System.err.println("MySQL JDBC Driver not found: " + e.getMessage());
-            } catch (SQLException e) {
-                System.err.println("Database connection failed: " + e.getMessage());
-            }
+    /**
+     * Creates and returns a new connection to the database.
+     * The connection should be closed by the caller, preferably using a try-with-resources block.
+     * @return a new Connection object
+     * @throws SQLException if a database access error occurs
+     */
+    public static Connection getConnection() throws SQLException {
+        try {
+            // Load the MySQL JDBC driver if you haven't done it in the main class
+            Class.forName("com.mysql.cj.jdbc.Driver");
+        } catch (ClassNotFoundException e) {
+            // This is a critical error, so we throw a RuntimeException
+            throw new RuntimeException("MySQL JDBC Driver not found!", e);
         }
-        return connection;
+        // DriverManager.getConnection() creates a new connection each time.
+        return DriverManager.getConnection(URL, USER, PASSWORD);
     }
 
-    public static void closeConnection() {
-        if (connection != null) {
-            try {
-                connection.close();
-                connection = null;
-                System.out.println("Database connection closed.");
-            } catch (SQLException e) {
-                System.err.println("Error closing database connection: " + e.getMessage());
-            }
-        }
-    }
+    // The closeConnection() method is removed.
+    // Connections will be managed by try-with-resources blocks in the DAO classes.
 }

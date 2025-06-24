@@ -15,7 +15,7 @@ public class PetDAO {
      * @return true if successful, false otherwise
      */
     public boolean addPet(Pet pet) {
-        String sql = "INSERT INTO pets (name, type, birth_date, weight, gender, notes) VALUES (?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO pets (name, type, birth_date, weight, gender, notes, image_path) VALUES (?, ?, ?, ?, ?, ?, ?)";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
@@ -33,7 +33,8 @@ public class PetDAO {
             stmt.setDouble(4, pet.getWeight());
             stmt.setString(5, pet.getGender());
             stmt.setString(6, pet.getNotes());
-            
+            stmt.setString(7, pet.getImagePath());
+
             int affectedRows = stmt.executeUpdate();
             
             if (affectedRows == 0) {
@@ -107,7 +108,7 @@ public class PetDAO {
      * @return true if successful, false otherwise
      */
     public boolean updatePet(Pet pet) {
-        String sql = "UPDATE pets SET name = ?, type = ?, birth_date = ?, weight = ?, gender = ?, notes = ? WHERE id = ?";
+        String sql = "UPDATE pets SET name = ?, type = ?, birth_date = ?, weight = ?, gender = ?, notes = ?, image_path = ? WHERE id = ?";
         
         try (Connection conn = DatabaseConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -125,7 +126,8 @@ public class PetDAO {
             stmt.setDouble(4, pet.getWeight());
             stmt.setString(5, pet.getGender());
             stmt.setString(6, pet.getNotes());
-            stmt.setInt(7, pet.getId());
+            stmt.setString(7, pet.getImagePath());
+            stmt.setInt(8, pet.getId());
             
             int affectedRows = stmt.executeUpdate();
             return affectedRows > 0;
@@ -172,6 +174,7 @@ public class PetDAO {
         pet.setWeight(rs.getDouble("weight"));
         pet.setGender(rs.getString("gender"));
         pet.setNotes(rs.getString("notes"));
+        pet.setImagePath(rs.getString("image_path"));
         return pet;
     }
     
