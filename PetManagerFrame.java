@@ -3,11 +3,10 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.io.File;
-import java.sql.SQLException;
 import java.util.List;
 import java.util.Vector;
 
-public class ViewPetsFrame extends JFrame {
+public class PetManagerFrame extends JFrame {
     private JList<Pet> petList;
     private DefaultListModel<Pet> petListModel;
     private JTextArea petDetailsArea;
@@ -16,8 +15,11 @@ public class ViewPetsFrame extends JFrame {
     private PetDAO petDAO;
     private CareLogDAO careLogDAO;
     private JLabel petImageLabel;
+    private JButton deletePetButton;
+    private MainMenu mainMenu; // Referensi untuk refresh jadwal
 
-    public ViewPetsFrame() {
+    public PetManagerFrame(MainMenu mainMenu) {
+        this.mainMenu = mainMenu;
         this.petDAO = new PetDAO();
         this.careLogDAO = new CareLogDAO();
         initializeUI();
@@ -25,21 +27,20 @@ public class ViewPetsFrame extends JFrame {
     }
 
     private void initializeUI() {
-        setTitle("View All Pets");
-        setSize(800, 600);
+        setTitle("Pet Manager");
+        setSize(850, 650);
         setLocationRelativeTo(null);
         setLayout(new BorderLayout(10, 10));
 
-        // Panel utama dengan padding
         JPanel mainPanel = new JPanel(new BorderLayout(10, 10));
         mainPanel.setBorder(new EmptyBorder(10, 10, 10, 10));
         add(mainPanel);
 
-        // Split pane untuk memisahkan daftar dan detail
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         mainPanel.add(splitPane, BorderLayout.CENTER);
 
-        // Kiri: Daftar Peliharaan
+        // Kiri: Daftar Peliharaan dan Tombol
+        JPanel leftPanel = new JPanel(new BorderLayout(5, 5));
         petListModel = new DefaultListModel<>();
         petList = new JList<>(petListModel);
         petList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -54,15 +55,24 @@ public class ViewPetsFrame extends JFrame {
         });
         JScrollPane listScrollPane = new JScrollPane(petList);
         listScrollPane.setBorder(BorderFactory.createTitledBorder("All Pets"));
-        splitPane.setLeftComponent(listScrollPane);
+        leftPanel.add(listScrollPane, BorderLayout.CENTER);
+
+        // Panel Tombol di Kiri
+        JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        JButton addPetButton = new JButton("Add New Pet");
+        deletePetButton = new JButton("Delete Selected Pet");
+        deletePetButton.setEnabled(false); // Awalnya nonaktif
+
+        buttonPanel.add(addPetButton);
+        buttonPanel.add(deletePetButton);
+        leftPanel.add(buttonPanel, BorderLayout.SOUTH);
+
+        splitPane.setLeftComponent(leftPanel);
 
         // Kanan: Panel untuk Detail dan Riwayat
         JPanel rightPanel = new JPanel(new BorderLayout(10, 10));
-
-        // PERBAIKAN: Membuat panel untuk bagian atas (detail teks dan gambar)
         JPanel topDetailsPanel = new JPanel(new BorderLayout(10, 10));
 
-        // Area teks untuk detail
         petDetailsArea = new JTextArea(8, 30);
         petDetailsArea.setEditable(false);
         petDetailsArea.setFont(new Font("Monospaced", Font.PLAIN, 12));
@@ -70,43 +80,48 @@ public class ViewPetsFrame extends JFrame {
         detailsScrollPane.setBorder(BorderFactory.createTitledBorder("Pet Details"));
         topDetailsPanel.add(detailsScrollPane, BorderLayout.CENTER);
 
-        // Label untuk menampilkan gambar
         petImageLabel = new JLabel();
         petImageLabel.setPreferredSize(new Dimension(150, 150));
         petImageLabel.setHorizontalAlignment(SwingConstants.CENTER);
         petImageLabel.setBorder(BorderFactory.createTitledBorder("Photo"));
         topDetailsPanel.add(petImageLabel, BorderLayout.EAST);
 
-        // Tabel untuk riwayat perawatan
         String[] historyColumns = {"Date", "Care Type", "Notes"};
-        historyTableModel = new DefaultTableModel(historyColumns, 0){
+        historyTableModel = new DefaultTableModel(historyColumns, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // Membuat tabel tidak bisa diedit
+                return false;
             }
         };
         historyTable = new JTable(historyTableModel);
         JScrollPane historyScrollPane = new JScrollPane(historyTable);
         historyScrollPane.setBorder(BorderFactory.createTitledBorder("Care History"));
 
-        // Menambahkan panel atas dan tabel riwayat ke panel kanan
         rightPanel.add(topDetailsPanel, BorderLayout.NORTH);
         rightPanel.add(historyScrollPane, BorderLayout.CENTER);
 
         splitPane.setRightComponent(rightPanel);
-        splitPane.setDividerLocation(200);
+        splitPane.setDividerLocation(250);
 
-        // Listener untuk menampilkan detail saat peliharaan dipilih
+        // Listeners
         petList.addListSelectionListener(e -> {
             if (!e.getValueIsAdjusting()) {
-                displayPetDetails(petList.getSelectedValue());
+                Pet selectedPet = petList.getSelectedValue();
+                displayPetDetails(selectedPet);
+                deletePetButton.setEnabled(selectedPet != null); // Aktifkan tombol delete jika ada pet yang dipilih
             }
         });
+
+        addPetButton.addActionListener(e -> {
+            // Kirim referensi PetManagerFrame agar bisa refresh
+            new AddPetForm(this, mainMenu).setVisible(true);
+        });
+
+        deletePetButton.addActionListener(e -> deleteSelectedPet());
     }
 
-    private void loadPets() {
-        // Menggunakan SwingWorker agar UI tidak freeze saat memuat data dari database
-        SwingWorker<List<Pet>, Void> worker = new SwingWorker<List<Pet>, Void>() {
+    public void loadPets() {
+        SwingWorker<List<Pet>, Void> worker = new SwingWorker<>() {
             @Override
             protected List<Pet> doInBackground() throws Exception {
                 return petDAO.getAllPets();
@@ -128,6 +143,30 @@ public class ViewPetsFrame extends JFrame {
         worker.execute();
     }
 
+    private void deleteSelectedPet() {
+        Pet selectedPet = petList.getSelectedValue();
+        if (selectedPet == null) {
+            JOptionPane.showMessageDialog(this, "Please select a pet to delete.", "Warning", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "Are you sure you want to delete '" + selectedPet.getName() + "'?\nThis will also delete all associated schedules and care history.",
+                "Confirm Deletion",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.WARNING_MESSAGE);
+
+        if (confirm == JOptionPane.YES_OPTION) {
+            if (petDAO.deletePet(selectedPet.getId())) {
+                JOptionPane.showMessageDialog(this, "Pet deleted successfully.", "Success", JOptionPane.INFORMATION_MESSAGE);
+                loadPets(); // Refresh list
+                mainMenu.loadSchedules(); // Refresh jadwal di menu utama
+            } else {
+                handleError("Failed to delete pet.", null);
+            }
+        }
+    }
+
     private void displayPetDetails(Pet pet) {
         if (pet == null) {
             petDetailsArea.setText("");
@@ -137,7 +176,6 @@ public class ViewPetsFrame extends JFrame {
             return;
         }
 
-        // Menampilkan detail teks
         StringBuilder details = new StringBuilder();
         details.append(String.format("ID      : %d\n", pet.getId()));
         details.append(String.format("Name    : %s\n", pet.getName()));
@@ -148,7 +186,6 @@ public class ViewPetsFrame extends JFrame {
         details.append(String.format("Notes   : %s\n", pet.getNotes()));
         petDetailsArea.setText(details.toString());
 
-        // PERBAIKAN: Menambahkan logika untuk menampilkan gambar
         String imagePath = pet.getImagePath();
         if (imagePath != null && !imagePath.isEmpty()) {
             File imageFile = new File(imagePath);
@@ -156,7 +193,7 @@ public class ViewPetsFrame extends JFrame {
                 ImageIcon icon = new ImageIcon(imagePath);
                 Image image = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
                 petImageLabel.setIcon(new ImageIcon(image));
-                petImageLabel.setText(""); // Hapus teks placeholder
+                petImageLabel.setText("");
             } else {
                 petImageLabel.setIcon(null);
                 petImageLabel.setText("Image not found");
@@ -166,9 +203,7 @@ public class ViewPetsFrame extends JFrame {
             petImageLabel.setText("No Photo");
         }
 
-
-        // Menampilkan riwayat perawatan di thread terpisah
-        SwingWorker<List<CareLog>, Void> historyWorker = new SwingWorker<List<CareLog>, Void>() {
+        SwingWorker<List<CareLog>, Void> historyWorker = new SwingWorker<>() {
             @Override
             protected List<CareLog> doInBackground() throws Exception {
                 return careLogDAO.getCareLogsByPetId(pet.getId());
@@ -178,7 +213,7 @@ public class ViewPetsFrame extends JFrame {
             protected void done() {
                 try {
                     List<CareLog> logs = get();
-                    historyTableModel.setRowCount(0); // Bersihkan tabel
+                    historyTableModel.setRowCount(0);
                     for (CareLog log : logs) {
                         Vector<Object> row = new Vector<>();
                         row.add(log.getCompletedAt());
@@ -195,7 +230,7 @@ public class ViewPetsFrame extends JFrame {
     }
 
     private void handleError(String message, Exception e) {
-        e.printStackTrace();
-        JOptionPane.showMessageDialog(this, message + ": " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        if (e != null) e.printStackTrace();
+        JOptionPane.showMessageDialog(this, message + (e != null ? ": " + e.getMessage() : ""), "Error", JOptionPane.ERROR_MESSAGE);
     }
 }
